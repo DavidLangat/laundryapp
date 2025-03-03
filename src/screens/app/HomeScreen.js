@@ -252,8 +252,7 @@ const HomeScreen = () => {
 
   const handlePlaceOrder = () => {
     // Navigate to place order screen
-    // navigation.navigate('PlaceOrder');
-    Alert.alert("Coming Soon", "Place Order feature is coming soon!");
+    navigation.navigate("PlaceOrder");
   };
 
   const handleTrackOrder = () => {
