@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -18,21 +19,43 @@ import { Button, Input } from "../../components";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { servicesAPI, ordersAPI, userAPI } from "../../services/api";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Ionicons, MaterialIcons, AntDesign } from "@expo/vector-icons";
+import {
+  Ionicons,
+  MaterialIcons,
+  AntDesign,
+  FontAwesome5,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import { format } from "date-fns";
 
 const ServiceItem = ({ service, onSelect, onRemove, quantity = 0 }) => {
   return (
     <View style={styles.serviceItem}>
       <View style={styles.serviceInfo}>
-        <Text style={styles.serviceName}>{service.name}</Text>
-        <Text style={styles.servicePrice}>
-          KES {service.price_per_item} per item
-        </Text>
+        <View style={styles.serviceIconContainer}>
+          <FontAwesome5
+            name={getServiceIcon(service.name)}
+            size={18}
+            color={COLORS.primary}
+          />
+        </View>
+        <View style={styles.serviceTextContainer}>
+          <Text style={styles.serviceName}>{service.name}</Text>
+          <Text style={styles.servicePrice}>
+            KES {service.price_per_item} per item
+          </Text>
+        </View>
       </View>
       <View style={styles.quantityControl}>
         <TouchableOpacity
-          style={[styles.quantityButton, { opacity: quantity === 0 ? 0.5 : 1 }]}
+          style={[
+            styles.quantityButton,
+            {
+              opacity: quantity === 0 ? 0.5 : 1,
+              backgroundColor:
+                quantity === 0 ? COLORS.lightGray : COLORS.primary,
+            },
+          ]}
           onPress={() => quantity > 0 && onRemove(service)}
           disabled={quantity === 0}
         >
@@ -48,6 +71,17 @@ const ServiceItem = ({ service, onSelect, onRemove, quantity = 0 }) => {
       </View>
     </View>
   );
+};
+
+// Helper function to get icon based on service name
+const getServiceIcon = (serviceName) => {
+  const name = serviceName.toLowerCase();
+  if (name.includes("wash")) return "tshirt";
+  if (name.includes("dry")) return "wind";
+  if (name.includes("iron")) return "iron";
+  if (name.includes("fold")) return "layer-group";
+  if (name.includes("press")) return "compress";
+  return "soap"; // default
 };
 
 const PlaceOrderScreen = () => {
@@ -67,6 +101,7 @@ const PlaceOrderScreen = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [activeSection, setActiveSection] = useState("services");
 
   // Fetch services and loyalty points
   useEffect(() => {
@@ -201,6 +236,21 @@ const PlaceOrderScreen = () => {
     );
   };
 
+  // Calculate discount from loyalty points
+  const calculateDiscount = () => {
+    if (useLoyaltyPoints && loyaltyPoints) {
+      return loyaltyPoints.points_value;
+    }
+    return 0;
+  };
+
+  // Calculate final total
+  const calculateFinalTotal = () => {
+    const total = calculateTotal();
+    const discount = calculateDiscount();
+    return Math.max(0, total - discount);
+  };
+
   // Validate form
   const validateForm = () => {
     const newErrors = {};
@@ -308,6 +358,72 @@ const PlaceOrderScreen = () => {
     return item ? item.quantity : 0;
   };
 
+  // Progress indicator
+  const renderProgressIndicator = () => {
+    return (
+      <View style={styles.progressContainer}>
+        <View style={styles.progressStep}>
+          <View
+            style={[
+              styles.progressDot,
+              activeSection === "services"
+                ? styles.activeProgressDot
+                : selectedItems.length > 0
+                ? styles.completedProgressDot
+                : {},
+            ]}
+          ></View>
+          <Text
+            style={[
+              styles.progressText,
+              activeSection === "services" ? styles.activeProgressText : {},
+            ]}
+          >
+            Services
+          </Text>
+        </View>
+        <View style={styles.progressLine}></View>
+        <View style={styles.progressStep}>
+          <View
+            style={[
+              styles.progressDot,
+              activeSection === "address"
+                ? styles.activeProgressDot
+                : pickupAddress
+                ? styles.completedProgressDot
+                : {},
+            ]}
+          ></View>
+          <Text
+            style={[
+              styles.progressText,
+              activeSection === "address" ? styles.activeProgressText : {},
+            ]}
+          >
+            Address
+          </Text>
+        </View>
+        <View style={styles.progressLine}></View>
+        <View style={styles.progressStep}>
+          <View
+            style={[
+              styles.progressDot,
+              activeSection === "schedule" ? styles.activeProgressDot : {},
+            ]}
+          ></View>
+          <Text
+            style={[
+              styles.progressText,
+              activeSection === "schedule" ? styles.activeProgressText : {},
+            ]}
+          >
+            Schedule
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -333,32 +449,52 @@ const PlaceOrderScreen = () => {
           <View style={{ width: 24 }} />
         </View>
 
+        {renderProgressIndicator()}
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
           {/* Services Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Services</Text>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons
+                name="washing-machine"
+                size={22}
+                color={COLORS.primary}
+              />
+              <Text style={styles.sectionTitle}>Select Services</Text>
+            </View>
+
             {errors.items && (
               <Text style={styles.errorText}>{errors.items}</Text>
             )}
 
-            {services.map((service) => (
-              <ServiceItem
-                key={service.id}
-                service={service}
-                onSelect={handleSelectService}
-                onRemove={handleRemoveService}
-                quantity={getQuantityForService(service.id)}
-              />
-            ))}
+            <View style={styles.servicesContainer}>
+              {services.map((service) => (
+                <ServiceItem
+                  key={service.id}
+                  service={service}
+                  onSelect={handleSelectService}
+                  onRemove={handleRemoveService}
+                  quantity={getQuantityForService(service.id)}
+                />
+              ))}
+            </View>
           </View>
 
           {/* Order Summary */}
           {selectedItems.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Order Summary</Text>
+              <View style={styles.sectionHeader}>
+                <MaterialIcons
+                  name="receipt"
+                  size={22}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.sectionTitle}>Order Summary</Text>
+              </View>
+
               <View style={styles.summaryContainer}>
                 {selectedItems.map((item, index) => (
                   <View key={index} style={styles.summaryItem}>
@@ -370,10 +506,23 @@ const PlaceOrderScreen = () => {
                     </Text>
                   </View>
                 ))}
+
                 <View style={styles.divider} />
+
+                {useLoyaltyPoints && loyaltyPoints && (
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.discountText}>Loyalty Discount</Text>
+                    <Text style={styles.discountPrice}>
+                      - KES {calculateDiscount()}
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.summaryItem}>
                   <Text style={styles.totalText}>Total</Text>
-                  <Text style={styles.totalPrice}>KES {calculateTotal()}</Text>
+                  <Text style={styles.totalPrice}>
+                    KES {calculateFinalTotal()}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -381,12 +530,23 @@ const PlaceOrderScreen = () => {
 
           {/* Pickup & Delivery Address */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Pickup Address</Text>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons
+                name="location-on"
+                size={22}
+                color={COLORS.primary}
+              />
+              <Text style={styles.sectionTitle}>Pickup Address</Text>
+            </View>
+
             <Input
               placeholder="Enter pickup address"
               value={pickupAddress}
               onChangeText={setPickupAddress}
               error={errors.pickupAddress}
+              leftIcon={
+                <MaterialIcons name="home" size={20} color={COLORS.primary} />
+              }
             />
 
             <View style={styles.switchContainer}>
@@ -404,14 +564,29 @@ const PlaceOrderScreen = () => {
 
             {!sameAddress && (
               <>
-                <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
-                  Delivery Address
-                </Text>
+                <View style={styles.sectionHeader}>
+                  <MaterialIcons
+                    name="local-shipping"
+                    size={22}
+                    color={COLORS.primary}
+                  />
+                  <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+                    Delivery Address
+                  </Text>
+                </View>
+
                 <Input
                   placeholder="Enter delivery address"
                   value={deliveryAddress}
                   onChangeText={setDeliveryAddress}
                   error={errors.deliveryAddress}
+                  leftIcon={
+                    <MaterialIcons
+                      name="location-city"
+                      size={20}
+                      color={COLORS.primary}
+                    />
+                  }
                 />
               </>
             )}
@@ -419,7 +594,11 @@ const PlaceOrderScreen = () => {
 
           {/* Pickup Date & Time */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Pickup Date & Time</Text>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="schedule" size={22} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>Pickup Date & Time</Text>
+            </View>
+
             {errors.pickupTime && (
               <Text style={styles.errorText}>{errors.pickupTime}</Text>
             )}
@@ -474,7 +653,11 @@ const PlaceOrderScreen = () => {
 
           {/* Special Instructions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Special Instructions</Text>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="note-add" size={22} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>Special Instructions</Text>
+            </View>
+
             <Input
               placeholder="Any special instructions for your order"
               value={specialInstructions}
@@ -482,31 +665,41 @@ const PlaceOrderScreen = () => {
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+              containerStyle={styles.specialInstructionsInput}
             />
           </View>
 
           {/* Loyalty Points */}
           {loyaltyPoints && loyaltyPoints.current_points > 0 && (
             <View style={styles.section}>
-              <View style={styles.switchContainer}>
-                <View>
-                  <Text style={styles.sectionTitle}>Use Loyalty Points</Text>
-                  <Text style={styles.pointsText}>
-                    You have {loyaltyPoints.current_points} points (KES{" "}
-                    {loyaltyPoints.points_value})
-                  </Text>
+              <View style={styles.loyaltyContainer}>
+                <View style={styles.loyaltyIconContainer}>
+                  <MaterialIcons name="stars" size={28} color={COLORS.white} />
                 </View>
-                <Switch
-                  value={useLoyaltyPoints}
-                  onValueChange={setUseLoyaltyPoints}
-                  trackColor={{
-                    false: COLORS.lightGray,
-                    true: COLORS.primary + "80",
-                  }}
-                  thumbColor={
-                    useLoyaltyPoints ? COLORS.primary : COLORS.darkGray
-                  }
-                />
+                <View style={styles.loyaltyInfo}>
+                  <View style={styles.switchContainer}>
+                    <View>
+                      <Text style={styles.sectionTitle}>
+                        Use Loyalty Points
+                      </Text>
+                      <Text style={styles.pointsText}>
+                        You have {loyaltyPoints.current_points} points (KES{" "}
+                        {loyaltyPoints.points_value})
+                      </Text>
+                    </View>
+                    <Switch
+                      value={useLoyaltyPoints}
+                      onValueChange={setUseLoyaltyPoints}
+                      trackColor={{
+                        false: COLORS.lightGray,
+                        true: COLORS.primary + "80",
+                      }}
+                      thumbColor={
+                        useLoyaltyPoints ? COLORS.primary : COLORS.darkGray
+                      }
+                    />
+                  </View>
+                </View>
               </View>
             </View>
           )}
@@ -556,6 +749,47 @@ const styles = StyleSheet.create({
     ...FONTS.h4,
     color: COLORS.text,
   },
+  progressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    backgroundColor: COLORS.white,
+  },
+  progressStep: {
+    alignItems: "center",
+  },
+  progressDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.lightGray,
+    marginBottom: 5,
+  },
+  activeProgressDot: {
+    backgroundColor: COLORS.primary,
+    borderWidth: 3,
+    borderColor: COLORS.primary + "30",
+  },
+  completedProgressDot: {
+    backgroundColor: COLORS.success,
+  },
+  progressLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: COLORS.lightGray,
+    marginHorizontal: 5,
+  },
+  progressText: {
+    ...FONTS.body4,
+    color: COLORS.textSecondary,
+  },
+  activeProgressText: {
+    ...FONTS.body4,
+    color: COLORS.primary,
+    fontWeight: "bold",
+  },
   scrollContent: {
     paddingBottom: 30,
   },
@@ -563,11 +797,22 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
   },
   sectionTitle: {
     ...FONTS.h4,
     color: COLORS.text,
-    marginBottom: 15,
+    marginLeft: 8,
+  },
+  servicesContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
   },
   serviceItem: {
     flexDirection: "row",
@@ -578,6 +823,20 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   serviceInfo: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  serviceIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  serviceTextContainer: {
     flex: 1,
   },
   serviceName: {
@@ -592,6 +851,9 @@ const styles = StyleSheet.create({
   quantityControl: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: COLORS.lightGray + "30",
+    borderRadius: 20,
+    padding: 4,
   },
   quantityButton: {
     width: 28,
@@ -642,6 +904,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
     marginVertical: 8,
   },
+  discountText: {
+    ...FONTS.body3,
+    color: COLORS.success,
+  },
+  discountPrice: {
+    ...FONTS.body3,
+    color: COLORS.success,
+  },
   totalText: {
     ...FONTS.h4,
     color: COLORS.text,
@@ -663,21 +933,12 @@ const styles = StyleSheet.create({
   dateTimeButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.lightGray + "20",
     borderRadius: 8,
     padding: 15,
     marginBottom: 15,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   dateTimeText: {
     ...FONTS.body2,
@@ -698,6 +959,28 @@ const styles = StyleSheet.create({
     ...FONTS.body3,
     color: COLORS.error,
     marginBottom: 10,
+  },
+  specialInstructionsInput: {
+    height: 100,
+  },
+  loyaltyContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primary + "10",
+    borderRadius: 12,
+    padding: 15,
+  },
+  loyaltyIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  loyaltyInfo: {
+    flex: 1,
   },
 });
 
