@@ -16,6 +16,7 @@ import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
 // Main App Screens
 import HomeScreen from "../screens/app/HomeScreen";
 import PlaceOrderScreen from "../screens/app/PlaceOrderScreen";
+import OrderSummaryScreen from "../screens/app/OrderSummaryScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -86,12 +87,14 @@ const Navigation = () => {
               name="ForgotPassword"
               component={ForgotPasswordScreen}
             />
+            {/* <Stack.Screen name="Login" component={LoginScreen} /> */}
           </>
         ) : (
           // App Stack
           <>
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="PlaceOrder" component={PlaceOrderScreen} />
+            <Stack.Screen name="OrderSummary" component={OrderSummaryScreen} />
           </>
         )}
       </Stack.Navigator>

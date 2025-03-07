@@ -17,13 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import { COLORS, FONTS, SIZES } from "../../constants";
 import { Button, Input } from "../../components";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  servicesAPI,
-  ordersAPI,
-  userAPI,
-  loyaltyAPI,
-  discountAPI,
-} from "../../services/api";
+import { servicesAPI, ordersAPI, userAPI } from "../../services/api";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   Ionicons,
@@ -108,10 +102,6 @@ const PlaceOrderScreen = () => {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeSection, setActiveSection] = useState("services");
-  const [discountCode, setDiscountCode] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState(null);
-  const [estimatedTotal, setEstimatedTotal] = useState(null);
-  const [estimating, setEstimating] = useState(false);
 
   // Fetch services and loyalty points
   useEffect(() => {
@@ -246,102 +236,19 @@ const PlaceOrderScreen = () => {
     );
   };
 
-  // Calculate loyalty discount
+  // Calculate discount from loyalty points
   const calculateDiscount = () => {
-    if (!useLoyaltyPoints || !loyaltyPoints) return 0;
-    // Assuming 1 point = 1 KES discount
-    const maxDiscount = calculateTotal() * 0.1; // Max 10% discount
-    const pointsValue = loyaltyPoints.points;
-    return Math.min(pointsValue, maxDiscount);
+    if (useLoyaltyPoints && loyaltyPoints) {
+      return loyaltyPoints.points_value;
+    }
+    return 0;
   };
 
-  // Calculate final total after discounts
+  // Calculate final total
   const calculateFinalTotal = () => {
     const total = calculateTotal();
-    const loyaltyDiscount = calculateDiscount();
-    const discountAmount = appliedDiscount ? appliedDiscount.amount : 0;
-    return total - loyaltyDiscount - discountAmount;
-  };
-
-  // Estimate order cost
-  const estimateOrderCost = async () => {
-    if (selectedItems.length === 0) {
-      Alert.alert("Error", "Please select at least one service");
-      return;
-    }
-
-    setEstimating(true);
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Error", "Please login to continue");
-        navigation.navigate("Login");
-        return;
-      }
-
-      const orderItems = {
-        items: selectedItems.map((item) => ({
-          service_id: item.service_id,
-          quantity: item.quantity,
-        })),
-        discount_code: discountCode || undefined,
-        use_loyalty_points: useLoyaltyPoints,
-      };
-
-      const response = await ordersAPI.estimateOrder(token, orderItems);
-
-      if (response.status === "success") {
-        setEstimatedTotal(response.data);
-        if (response.data.discount) {
-          setAppliedDiscount(response.data.discount);
-        }
-        Alert.alert("Success", "Order cost estimated successfully");
-      } else {
-        Alert.alert(
-          "Error",
-          response.message || "Failed to estimate order cost"
-        );
-      }
-    } catch (error) {
-      console.error("Order estimation error:", error);
-      Alert.alert("Error", "Failed to estimate order cost. Please try again.");
-    } finally {
-      setEstimating(false);
-    }
-  };
-
-  // Apply discount code
-  const applyDiscountCode = async () => {
-    if (!discountCode) {
-      Alert.alert("Error", "Please enter a discount code");
-      return;
-    }
-
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Error", "Please login to continue");
-        navigation.navigate("Login");
-        return;
-      }
-
-      const discountData = {
-        code: discountCode,
-        order_total: calculateTotal(),
-      };
-
-      const response = await discountAPI.applyDiscount(token, discountData);
-
-      if (response.status === "success") {
-        setAppliedDiscount(response.data.discount);
-        Alert.alert("Success", "Discount applied successfully");
-      } else {
-        Alert.alert("Error", response.message || "Invalid discount code");
-      }
-    } catch (error) {
-      console.error("Discount application error:", error);
-      Alert.alert("Error", "Failed to apply discount. Please try again.");
-    }
+    const discount = calculateDiscount();
+    return Math.max(0, total - discount);
   };
 
   // Validate form
@@ -384,8 +291,6 @@ const PlaceOrderScreen = () => {
       return;
     }
 
-    setSubmitting(true);
-
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
@@ -395,7 +300,7 @@ const PlaceOrderScreen = () => {
       }
 
       // Format pickup date and time
-      const formattedDateTime = format(
+      const pickupDateTime = format(
         new Date(
           pickupDate.getFullYear(),
           pickupDate.getMonth(),
@@ -406,68 +311,47 @@ const PlaceOrderScreen = () => {
         "yyyy-MM-dd HH:mm:ss"
       );
 
+      // Calculate delivery date (default to 2 days after pickup)
+      const deliveryDateObj = new Date(pickupDate);
+      deliveryDateObj.setDate(deliveryDateObj.getDate() + 2);
+
+      const deliveryDateTime = format(
+        new Date(
+          deliveryDateObj.getFullYear(),
+          deliveryDateObj.getMonth(),
+          deliveryDateObj.getDate(),
+          pickupTime.getHours(),
+          pickupTime.getMinutes()
+        ),
+        "yyyy-MM-dd HH:mm:ss"
+      );
+
+      // Format for display
+      const pickupDateFormatted = format(pickupDate, "MMMM dd, yyyy");
+      const pickupTimeFormatted = format(pickupTime, "h:mm a");
+      const deliveryDateFormatted = format(deliveryDateObj, "MMMM dd, yyyy");
+      const deliveryTimeFormatted = format(pickupTime, "h:mm a");
+
       // Prepare order data
       const orderData = {
-        pickup_address: pickupAddress,
-        delivery_address: sameAddress ? pickupAddress : deliveryAddress,
-        pickup_time: formattedDateTime,
+        items: selectedItems.map((item) => ({
+          service_id: item.service_id,
+          quantity: item.quantity,
+        })),
+        address: sameAddress ? pickupAddress : deliveryAddress,
+        pickup_date: pickupDateFormatted,
+        pickup_time: pickupTimeFormatted,
+        delivery_date: deliveryDateFormatted,
+        delivery_time: deliveryTimeFormatted,
         special_instructions: specialInstructions,
         use_loyalty_points: useLoyaltyPoints,
-        discount_code: discountCode || undefined,
-        items: selectedItems.map((item) => ({
-          service_id: parseInt(item.service_id, 10), // Ensure service_id is a number
-          quantity: parseInt(item.quantity, 10), // Ensure quantity is a number
-        })),
       };
 
-      console.log("Submitting order:", JSON.stringify(orderData, null, 2));
-
-      // Submit order
-      const response = await ordersAPI.createOrder(token, orderData);
-
-      if (response.status === "success") {
-        // If order created successfully, confirm payment
-        const confirmResponse = await ordersAPI.confirmOrder(token, {
-          order_id: parseInt(response.data.order_id, 10), // Ensure order_id is a number
-          payment_method: "mpesa", // Default to mpesa, can be made selectable
-        });
-
-        if (confirmResponse.status === "success") {
-          // If loyalty points were used, redeem them
-          if (useLoyaltyPoints && loyaltyPoints) {
-            await loyaltyAPI.redeemPoints(token, {
-              points: Math.min(
-                parseInt(loyaltyPoints.points, 10),
-                Math.floor(calculateTotal() * 0.1)
-              ),
-              order_total: calculateTotal(),
-            });
-          }
-
-          Alert.alert(
-            "Order Placed",
-            "Your order has been placed and payment initiated successfully!",
-            [
-              {
-                text: "OK",
-                onPress: () => navigation.navigate("Home"),
-              },
-            ]
-          );
-        } else {
-          Alert.alert(
-            "Payment Error",
-            confirmResponse.message || "Failed to process payment"
-          );
-        }
-      } else {
-        Alert.alert("Error", response.message || "Failed to place order");
-      }
+      // Navigate to order summary screen
+      navigation.navigate("OrderSummary", { orderData });
     } catch (error) {
-      console.error("Order submission error:", error);
-      Alert.alert("Error", "Failed to place order. Please try again.");
-    } finally {
-      setSubmitting(false);
+      console.error("Order preparation error:", error);
+      Alert.alert("Error", "Failed to prepare order. Please try again.");
     }
   };
 
@@ -543,112 +427,6 @@ const PlaceOrderScreen = () => {
     );
   };
 
-  // Render order summary section with discount code input
-  const renderOrderSummary = () => {
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <MaterialIcons name="receipt" size={22} color={COLORS.primary} />
-          <Text style={styles.sectionTitle}>Order Summary</Text>
-        </View>
-
-        <View style={styles.summaryContainer}>
-          {selectedItems.map((item, index) => (
-            <View key={index} style={styles.summaryItem}>
-              <Text style={styles.summaryItemName}>
-                {item.item_name} x {item.quantity}
-              </Text>
-              <Text style={styles.summaryItemPrice}>
-                KES {item.price_per_item * item.quantity}
-              </Text>
-            </View>
-          ))}
-
-          <View style={styles.divider} />
-
-          {/* Discount Code Section */}
-          <View style={styles.discountSection}>
-            <Input
-              placeholder="Enter discount code"
-              value={discountCode}
-              onChangeText={setDiscountCode}
-              containerStyle={styles.discountInput}
-              leftIcon={
-                <MaterialIcons
-                  name="local-offer"
-                  size={20}
-                  color={COLORS.primary}
-                />
-              }
-            />
-            <TouchableOpacity
-              style={styles.applyButton}
-              onPress={applyDiscountCode}
-            >
-              <Text style={styles.applyButtonText}>Apply</Text>
-            </TouchableOpacity>
-          </View>
-
-          {appliedDiscount && (
-            <View style={styles.summaryItem}>
-              <Text style={styles.discountText}>
-                Discount ({appliedDiscount.code})
-              </Text>
-              <Text style={styles.discountPrice}>
-                - KES {appliedDiscount.amount}
-              </Text>
-            </View>
-          )}
-
-          {useLoyaltyPoints && loyaltyPoints && (
-            <View style={styles.summaryItem}>
-              <Text style={styles.discountText}>Loyalty Discount</Text>
-              <Text style={styles.discountPrice}>
-                - KES {calculateDiscount()}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.summaryItem}>
-            <Text style={styles.totalText}>Total</Text>
-            <Text style={styles.totalPrice}>KES {calculateFinalTotal()}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.estimateButton}
-            onPress={estimateOrderCost}
-            disabled={estimating}
-          >
-            {estimating ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Text style={styles.estimateButtonText}>Estimate Cost</Text>
-            )}
-          </TouchableOpacity>
-
-          {estimatedTotal && (
-            <View style={styles.estimatedContainer}>
-              <Text style={styles.estimatedTitle}>Estimated Cost:</Text>
-              <Text style={styles.estimatedAmount}>
-                KES {estimatedTotal.total}
-              </Text>
-              {estimatedTotal.breakdown && (
-                <View style={styles.estimatedBreakdown}>
-                  <Text style={styles.breakdownTitle}>Breakdown:</Text>
-                  {estimatedTotal.breakdown.map((item, index) => (
-                    <Text key={index} style={styles.breakdownItem}>
-                      {item.description}: KES {item.amount}
-                    </Text>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -709,7 +487,49 @@ const PlaceOrderScreen = () => {
           </View>
 
           {/* Order Summary */}
-          {selectedItems.length > 0 && renderOrderSummary()}
+          {selectedItems.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MaterialIcons
+                  name="receipt"
+                  size={22}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.sectionTitle}>Order Summary</Text>
+              </View>
+
+              <View style={styles.summaryContainer}>
+                {selectedItems.map((item, index) => (
+                  <View key={index} style={styles.summaryItem}>
+                    <Text style={styles.summaryItemName}>
+                      {item.item_name} x {item.quantity}
+                    </Text>
+                    <Text style={styles.summaryItemPrice}>
+                      KES {item.price_per_item * item.quantity}
+                    </Text>
+                  </View>
+                ))}
+
+                <View style={styles.divider} />
+
+                {useLoyaltyPoints && loyaltyPoints && (
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.discountText}>Loyalty Discount</Text>
+                    <Text style={styles.discountPrice}>
+                      - KES {calculateDiscount()}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.summaryItem}>
+                  <Text style={styles.totalText}>Total</Text>
+                  <Text style={styles.totalPrice}>
+                    KES {calculateFinalTotal()}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Pickup & Delivery Address */}
           <View style={styles.section}>
@@ -889,7 +709,7 @@ const PlaceOrderScreen = () => {
 
           {/* Submit Button */}
           <Button
-            title={submitting ? "Placing Order..." : "Place Order"}
+            title={submitting ? "Processing..." : "Continue to Summary"}
             onPress={handleSubmitOrder}
             loading={submitting}
             disabled={submitting || selectedItems.length === 0}
@@ -1164,69 +984,6 @@ const styles = StyleSheet.create({
   },
   loyaltyInfo: {
     flex: 1,
-  },
-  discountSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 10,
-  },
-  discountInput: {
-    flex: 1,
-    marginRight: 10,
-  },
-  applyButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 5,
-  },
-  applyButtonText: {
-    color: COLORS.white,
-    fontFamily: FONTS.medium,
-    fontSize: SIZES.small,
-  },
-  estimateButton: {
-    backgroundColor: COLORS.secondary,
-    paddingVertical: 10,
-    borderRadius: 5,
-    marginTop: 15,
-    alignItems: "center",
-  },
-  estimateButtonText: {
-    color: COLORS.white,
-    fontFamily: FONTS.medium,
-    fontSize: SIZES.small,
-  },
-  estimatedContainer: {
-    marginTop: 15,
-    padding: 10,
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 5,
-  },
-  estimatedTitle: {
-    fontFamily: FONTS.medium,
-    fontSize: SIZES.small,
-    color: COLORS.darkGray,
-  },
-  estimatedAmount: {
-    fontFamily: FONTS.bold,
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
-    marginTop: 5,
-  },
-  estimatedBreakdown: {
-    marginTop: 10,
-  },
-  breakdownTitle: {
-    fontFamily: FONTS.medium,
-    fontSize: SIZES.small,
-    color: COLORS.darkGray,
-  },
-  breakdownItem: {
-    fontFamily: FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.darkGray,
-    marginTop: 3,
   },
 });
 
