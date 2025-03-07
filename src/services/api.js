@@ -190,9 +190,14 @@ export const ordersAPI = {
 
   // Create new order
   createOrder: async (token, orderData) => {
-    console.log("orderData", token);
+    console.log("orderData", JSON.stringify(orderData, null, 2));
     try {
-      const response = await api.post("/order/create.php", orderData, {
+      // Check if we're using the correct endpoint
+      // The error suggests we might need to use /orders/create.php instead of /order/create.php
+      const endpoint = "/orders/create.php"; // Changed from /order/create.php
+      console.log("Using endpoint:", endpoint);
+
+      const response = await api.post(endpoint, orderData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -200,6 +205,17 @@ export const ordersAPI = {
       console.log("response", response);
       return response.data;
     } catch (error) {
+      console.error("API Error:", error.message);
+      if (error.response) {
+        console.error(
+          "Error Response Data:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+        console.error("Error Response Status:", error.response.status);
+        console.error("Error Response Headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("Error Request:", error.request);
+      }
       throw error;
     }
   },
@@ -225,27 +241,59 @@ export const ordersAPI = {
   // Estimate order cost
   estimateOrder: async (token, orderItems) => {
     try {
-      const response = await api.post("/order/estimate.php", orderItems, {
+      // Use consistent endpoint path
+      const endpoint = "/orders/estimate.php"; // Changed from /order/estimate.php
+      console.log("Using estimate endpoint:", endpoint);
+
+      const response = await api.post(endpoint, orderItems, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       return response.data;
     } catch (error) {
+      console.error("API Error in estimateOrder:", error.message);
+      if (error.response) {
+        console.error(
+          "Error Response Data:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+        console.error("Error Response Status:", error.response.status);
+        console.error("Error Response Headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("Error Request:", error.request);
+      }
       throw error;
     }
   },
 
   // Confirm order and process payment
   confirmOrder: async (token, orderData) => {
+    console.log("Confirming order:", JSON.stringify(orderData, null, 2));
     try {
-      const response = await api.post("/order/confirm.php", orderData, {
+      // Use consistent endpoint path
+      const endpoint = "/orders/confirm.php"; // Changed from /order/confirm.php
+      console.log("Using confirm endpoint:", endpoint);
+
+      const response = await api.post(endpoint, orderData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      console.log("Confirmation response:", response.data);
       return response.data;
     } catch (error) {
+      console.error("API Error in confirmOrder:", error.message);
+      if (error.response) {
+        console.error(
+          "Error Response Data:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+        console.error("Error Response Status:", error.response.status);
+        console.error("Error Response Headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("Error Request:", error.request);
+      }
       throw error;
     }
   },
@@ -255,14 +303,31 @@ export const ordersAPI = {
 export const loyaltyAPI = {
   // Redeem loyalty points
   redeemPoints: async (token, redemptionData) => {
+    console.log("Redeeming points:", JSON.stringify(redemptionData, null, 2));
     try {
-      const response = await api.post("/loyalty/redeem.php", redemptionData, {
+      // Use consistent endpoint path
+      const endpoint = "/loyalty/redeem.php"; // Keeping this the same as it seems correct
+      console.log("Using loyalty endpoint:", endpoint);
+
+      const response = await api.post(endpoint, redemptionData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      console.log("Redemption response:", response.data);
       return response.data;
     } catch (error) {
+      console.error("API Error in redeemPoints:", error.message);
+      if (error.response) {
+        console.error(
+          "Error Response Data:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+        console.error("Error Response Status:", error.response.status);
+        console.error("Error Response Headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("Error Request:", error.request);
+      }
       throw error;
     }
   },
@@ -272,14 +337,31 @@ export const loyaltyAPI = {
 export const discountAPI = {
   // Apply discount code
   applyDiscount: async (token, discountData) => {
+    console.log("Applying discount:", JSON.stringify(discountData, null, 2));
     try {
-      const response = await api.post("/discount/apply.php", discountData, {
+      // Use consistent endpoint path
+      const endpoint = "/discounts/apply.php"; // Changed from /discount/apply.php
+      console.log("Using discount endpoint:", endpoint);
+
+      const response = await api.post(endpoint, discountData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      console.log("Discount response:", response.data);
       return response.data;
     } catch (error) {
+      console.error("API Error in applyDiscount:", error.message);
+      if (error.response) {
+        console.error(
+          "Error Response Data:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+        console.error("Error Response Status:", error.response.status);
+        console.error("Error Response Headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("Error Request:", error.request);
+      }
       throw error;
     }
   },

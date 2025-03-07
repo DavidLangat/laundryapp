@@ -415,11 +415,12 @@ const PlaceOrderScreen = () => {
         use_loyalty_points: useLoyaltyPoints,
         discount_code: discountCode || undefined,
         items: selectedItems.map((item) => ({
-          service_id: item.service_id,
-          item_name: item.item_name,
-          quantity: item.quantity,
+          service_id: parseInt(item.service_id, 10), // Ensure service_id is a number
+          quantity: parseInt(item.quantity, 10), // Ensure quantity is a number
         })),
       };
+
+      console.log("Submitting order:", JSON.stringify(orderData, null, 2));
 
       // Submit order
       const response = await ordersAPI.createOrder(token, orderData);
@@ -427,7 +428,7 @@ const PlaceOrderScreen = () => {
       if (response.status === "success") {
         // If order created successfully, confirm payment
         const confirmResponse = await ordersAPI.confirmOrder(token, {
-          order_id: response.data.order_id,
+          order_id: parseInt(response.data.order_id, 10), // Ensure order_id is a number
           payment_method: "mpesa", // Default to mpesa, can be made selectable
         });
 
@@ -435,7 +436,10 @@ const PlaceOrderScreen = () => {
           // If loyalty points were used, redeem them
           if (useLoyaltyPoints && loyaltyPoints) {
             await loyaltyAPI.redeemPoints(token, {
-              points: Math.min(loyaltyPoints.points, calculateTotal() * 0.1),
+              points: Math.min(
+                parseInt(loyaltyPoints.points, 10),
+                Math.floor(calculateTotal() * 0.1)
+              ),
               order_total: calculateTotal(),
             });
           }
