@@ -161,6 +161,7 @@ export const offersAPI = {
 export const ordersAPI = {
   // Get user orders
   getOrders: async (token) => {
+    console.log("token", token);
     try {
       const response = await api.get("/orders/index.php", {
         headers: {
@@ -189,12 +190,14 @@ export const ordersAPI = {
 
   // Create new order
   createOrder: async (token, orderData) => {
+    console.log("orderData", token);
     try {
-      const response = await api.post("/orders/create.php", orderData, {
+      const response = await api.post("/order/create.php", orderData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      console.log("response", response);
       return response.data;
     } catch (error) {
       throw error;
@@ -213,6 +216,68 @@ export const ordersAPI = {
           },
         }
       );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Estimate order cost
+  estimateOrder: async (token, orderItems) => {
+    try {
+      const response = await api.post("/order/estimate.php", orderItems, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Confirm order and process payment
+  confirmOrder: async (token, orderData) => {
+    try {
+      const response = await api.post("/order/confirm.php", orderData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+// Loyalty APIs
+export const loyaltyAPI = {
+  // Redeem loyalty points
+  redeemPoints: async (token, redemptionData) => {
+    try {
+      const response = await api.post("/loyalty/redeem.php", redemptionData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+// Discount APIs
+export const discountAPI = {
+  // Apply discount code
+  applyDiscount: async (token, discountData) => {
+    try {
+      const response = await api.post("/discount/apply.php", discountData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       return response.data;
     } catch (error) {
       throw error;
